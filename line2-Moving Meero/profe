@@ -1,0 +1,143 @@
+// totalT: 애니메이션의 총 시간
+// randAng: 회전할 때의 최대 각도
+let totalT = 60;
+let randAng = Math.PI/3; 
+
+
+// dofdot: 점선을 그릴 때 사용되는 각 선분의 길이
+// maxl minl: 선분의 최대 및 최소 길이
+let dofdot = 8;
+let maxl=80, minl=40;
+
+// DotLine: 클래스의 인스턴스를 저장할 배열
+// numlines: 생성할 DotLine 인스턴스의 개수
+let dotlines = [];
+let numlines = 100;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  
+  for (let i = 0; i < numlines; i++) {
+		let wei = map(i, 0, numlines, 4, 1);
+		let col = map(i, 0, numlines, 30, 180);
+    dotlines.push(new DotLine(wei, col));
+  }
+}
+
+// easeInOutExpo: 처음과 끝에서 속도가 느리고 중간에서 빠르게 변하는 값을 반환하는 함수
+// ? 이면 뒤에 것 반환, 아닌 경우 :로 go
+// Math.pow(base, exponent) base는 밑수(base)이고, exponent는 지수(exponent)
+function easeInOutExpo(x) {
+  return x === 0 ? 0
+    : x === 1 ? 1
+      : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2
+        : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}
+
+function draw() {
+  background(255, 3);
+
+  for (let dl of dotlines) {
+    dl.show();
+    dl.update();
+  }
+}
+
+
+class DotLine {
+  // wei: 선의 두께, col: 색상
+  constructor(wei, col) {
+    this.wei = wei;
+    this.col = col;
+
+    // t: 애니메이션의 시간, pts: 선을 그릴 때 사용할 포인트들을 담는 배열
+    this.t = 0;
+    this.pts = [];
+
+    // curAng는 현재 각도, tarAng는 목표 각도로 초기화되며, 무작위로 설정됩니다.
+    this.curAng = 0;
+    this.tarAng = random(-randAng, randAng);
+
+    // startPt는 선분의 시작점, endPt는 선분의 끝점으로, 
+    // 각각 원점 (0, 0)에서 tarAng 방향으로 길이가 minl에서 maxl 사이의 무작위한 값인 벡터
+    // p5.Vector.fromAngle(angle, length)
+    this.startPt = createVector(0, 0);
+    this.endPt = p5.Vector.fromAngle(this.tarAng, random(minl, maxl));
+  }
+
+  show() {
+    // tt 현재 시간을 정규화한 값 ~ norm(value, start, stop)
+    let tt = norm(this.t, 0, totalT);
+
+    // x와 y는 현재 위치를 easeInOutExpo 함수를 사용하여 계산합니다.
+    // lerp(start, stop, amt): start와 stop 사이 길이의 amt 비율 지점 값
+    // easeInoutExpo를 통해서 부드러운 움직임을 만듦
+    this.x = lerp(this.startPt.x, this.endPt.x, easeInOutExpo(tt));
+    this.y = lerp(this.startPt.y, this.endPt.y, easeInOutExpo(tt));
+    let ang = lerp(0, this.tarAng, easeInOutExpo(tt));
+
+
+    push(); // 현재의 그래픽 상태(변환, 스타일 등) 저장
+
+    translate(width / 2, height / 2); // 캔버스의 중심으로 이동
+    rotate(this.curAng + ang); // 현재 각도 this.curAng와 추가 각도 ang에 따라 회전
+
+    noFill();
+    stroke(this.col);
+    strokeWeight(this.wei);
+    line(this.startPt.x, this.startPt.y, this.x, this.y);
+
+    // 가장 최근선은 이전과 같은 스타일
+    // pts: 선을 그릴 때 사용할 포인트들을 담는 배열
+    //이전의 포인트와 현재 포인트를 선으로 연결
+    if (this.pts.length != 0) {
+      stroke(this.col);
+      // this.x,y는 현재 그려진 선분의 끝점 좌표
+      // this.pts[this.pts.length - 1].x + this.x: 이전 선분의 끝점 좌표에 현재 위치를 더한 값
+      // 즉 새로 생긴만큼 밀려나가게 하는 거지
+      line(this.x, this.y, this.pts[this.pts.length - 1].x + this.x, this.pts[this.pts.length - 1].y + this.y);
+    }
+
+    // 가장 최근 선이 제외되었네
+    // 얘네는 기존 자기 alpha 가지도록
+    // 새로 생긴선 만큼 밀려나도록
+    for (let i = 0; i < this.pts.length - 1; i++) {
+      stroke(this.col, this.pts[i].alpha);
+      strokeWeight(this.wei);
+      noFill();
+      line(this.pts[i].x + this.x, this.pts[i].y + this.y, this.pts[i + 1].x + this.x, this.pts[i + 1].y + this.y);
+    }
+
+    pop(); // 이전의 그래픽 상태로 복원
+  }
+
+  update() {
+    this.t++;
+
+    if (this.t > totalT) {
+      // 새로 애니메이션 시작
+      this.t = 0;
+      this.curAng += this.tarAng;
+
+      // 선 위치 및 투명도 조절
+      for (let i = 0; i < this.pts.length; i++) {
+        this.pts[i].x += this.x;
+        this.pts[i].y += this.y;
+        this.pts[i].alpha = 255 - (this.pts.length - i) * 10;
+        if (this.pts[i].alpha < -10) this.pts.splice(i, 1);
+      }
+      
+      // 기존 선 추가
+      this.pts.push({
+        x: this.endPt.x,
+        y: this.endPt.y,
+        alpha: 255
+      });
+
+      this.tarAng = random(-randAng, randAng);
+      this.endPt = p5.Vector.fromAngle(this.tarAng, random(minl, maxl));
+
+      // console.log(this.pts);
+    }
+  }
+}

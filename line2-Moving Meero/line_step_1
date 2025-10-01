@@ -1,0 +1,60 @@
+// 애니메이션 증가
+
+let minl = 1300;
+let maxl = 1500;
+
+let t = 0;
+let totalt = 60;
+
+// line easeInOutExpo 점검
+function setup(){
+  
+  createCanvas(windowWidth, windowHeight);
+  background(255);
+  translate(windowWidth/2, windowHeight/2)
+
+  let ranAng = (120);
+  let tarAng = random(-ranAng, ranAng);
+  circle(255,255,30)
+
+  
+  // 
+  length= random(minl,maxl)
+  circle(0,0,30)
+  v1 = createVector(0,0)
+  v2 = p5.Vector.fromAngle(tarAng, length)
+  console.log(v1,v2)
+}
+
+function draw(){
+  push(); // 현재의 그래픽 상태(변환, 스타일 등) 저장
+
+  translate(width / 2, height / 2); // 캔버스의 중심으로 이동
+  circle(0,0,80)
+  
+  t++
+
+  let tt = norm(t, 0, totalt);
+  x1 = lerp(v1.x,v2.x, easeInOutExpo(tt))
+  y1 = lerp(v1.y,v2.y, easeInOutExpo(tt))
+  console.log(x1)
+  console.log(y1)
+
+  if (t>totalt){
+    noLoop()
+  }
+  line(v1.x, v1.y, x1,y1)
+  pop(); // 이전의 그래픽 상태로 복원
+
+}
+
+
+// easeInOutExpo: 처음과 끝에서 속도가 느리고 중간에서 빠르게 변하는 값을 반환하는 함수
+// ? 이면 뒤에 것 반환, 아닌 경우 :로 go
+// Math.pow(base, exponent) base는 밑수(base)이고, exponent는 지수(exponent)
+function easeInOutExpo(x) {
+  return x === 0 ? 0
+    : x === 1 ? 1
+      : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2
+        : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}

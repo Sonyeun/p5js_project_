@@ -1,0 +1,59 @@
+let length = 5
+let lines = []
+let x_interval = 10
+let y_interval = 10
+let startAng = 0
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  background(255)
+
+  startAng = random(-TWO_PI, TWO_PI)
+  for (x = 0; x < width; x += x_interval) {
+    for (y = 0; y < height; y += y_interval) {
+      lines.push(new Line(x, y))
+    }
+  }
+  for (i = 0; i < lines.length; i++) {
+    lines[i].show()
+  }
+
+}
+
+function draw() {
+  background(255)
+  for (let i = 0; i < lines.length; i++) {
+    let noise_ang = noise(i * 0.005) * 0.1
+    // let noise_len = noise(i * 0.5) *0.1
+    lines[i].update(noise_ang)
+    lines[i].show()
+
+  }
+
+
+}
+
+class Line {
+  constructor(x, y) {
+    this.x = x
+    this.y = y
+    this.length = length
+    this.startAng = startAng
+    this.v1 = p5.Vector.fromAngle(this.startAng, this.length);
+  }
+
+  show() {
+    push()
+    translate(this.x, this.y)
+    strokeWeight(10)
+    line(0, 0, this.v1.x, this.v1.y)
+    pop()
+  }
+
+  update(noise_ang) {
+    this.startAng += noise_ang
+  
+    this.v1 = p5.Vector.fromAngle(this.startAng, this.length);
+  }
+}
+

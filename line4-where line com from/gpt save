@@ -1,0 +1,44 @@
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+}
+
+function draw() {
+  background(255); // 캔버스를 흰색으로 지우기
+
+  // 점을 그리기
+  let center = createVector(windowWidth / 2, windowHeight / 2);
+  fill(0); // 점의 색상을 검정으로 설정
+  ellipse(center.x, center.y, 10, 10);
+
+  // 왼쪽으로 window width의 2배가 되는 점을 계산
+  let leftPoint = createVector(center.x - windowWidth, center.y);
+
+  // 여러 개의 벡터 그리기
+  let numVectors = 800; // 벡터의 개수
+  let radius = 10000; // 벡터의 길이
+
+  for (let i = 0; i < numVectors; i++) {
+    // fromAngle 함수를 사용하여 각도로부터 벡터 생성
+    let angle = map(i, 0, numVectors, 0, TWO_PI); // 0부터 2π까지 각도 생성
+    let vector = p5.Vector.fromAngle(angle);
+
+    // 벡터의 길이와 위치 조절
+    vector.mult(radius);
+    vector.add(leftPoint);
+
+    // 벡터 그리기
+    drawVector(leftPoint, vector);
+  }
+}
+
+// 벡터를 그리는 함수
+function drawVector(origin, vector) {
+  stroke(0); // 선의 색상을 검정으로 설정
+  line(origin.x, origin.y, vector.x, vector.y);
+  fill(0); // 화살표 삼각형의 색상을 검정으로 설정
+  triangle(
+    vector.x, vector.y,
+    vector.x - 5, vector.y - 5,
+    vector.x - 5, vector.y + 5
+  );
+}

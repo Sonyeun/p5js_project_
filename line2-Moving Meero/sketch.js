@@ -1,0 +1,118 @@
+// line 초기 길이 설정
+let minl = 400;
+let maxl = 600;
+let randang = Math.PI / 3
+
+// 애니메이션 초기 설정
+let t = 0;
+let totalT = 60;
+let nums = 255
+let dotlines = []
+
+function setup() {
+  // random을 여기 넣어야하는 병신 코드
+
+  background(255)
+  createCanvas(windowWidth, windowHeight)
+
+  for (let i = 0; i < nums; i++) {
+    let wei = map(i, 0, nums, 15,9)
+    let col = map(i, 0, nums, 1, 240)
+    dotlines.push(new DotLine(wei, col))
+  }
+}
+
+// easeInOutExpo: 처음과 끝에서 속도가 느리고 중간에서 빠르게 변하는 값을 반환하는 함수
+// ? 이면 뒤에 것 반환, 아닌 경우 :로 go
+// Math.pow(base, exponent) base는 밑수(base)이고, exponent는 지수(exponent)
+
+function easeInOutExpo(x) {
+  return x === 0 ? 0
+    : x === 1 ? 1
+      : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2
+        : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}
+
+function draw() {
+  for (let i = 0; i < dotlines.length; i++) {
+    dotlines[i].show()
+    dotlines[i].update()
+  }
+  //background(255,3)
+}
+
+class DotLine {
+  constructor(wei, col) {
+    this.wei = wei
+    this.col = col
+
+    this.currentang = 0
+    this.tarang = random(-randang, randang)
+
+    this.t = 0
+    this.tt = 0
+
+    this.pts = []
+    this.startpt = createVector(0, 0)
+    this.endpt = p5.Vector.fromAngle(this.tarang, random(minl, maxl))
+  }
+
+  show() {
+    this.tt = norm(this.t, 0, totalT)
+
+    this.x = lerp(this.startpt.x, this.endpt.x, easeInOutExpo(this.tt))
+    this.y = lerp(this.startpt.y, this.endpt.y, easeInOutExpo(this.tt))
+    this.ang = lerp(0, this.tarang, easeInOutExpo(this.tt))
+
+    push()
+    translate(width / 2, height / 2)
+    rotate(this.currentang + this.ang)
+
+
+    // 신규 선
+    stroke(this.col)
+    strokeWeight(this.wei)
+    line(this.startpt.x, this.startpt.y, this.x, this.y)
+    // 그 외 선
+    for (let i = 0; i < this.pts.length - 1; i++) {
+      stroke(this.col, this.pts[i].alpha)
+
+      line(this.pts[i].x + this.x, this.pts[i].y + this.y, this.pts[i + 1].x + this.x, this.pts[i + 1].y + this.y)
+    }
+
+    // 마지막에 처리 안된 선
+    if (this.pts.length != 0) {
+      stroke(this.col)
+      line(this.x, this.y, this.pts[this.pts.length - 1].x + this.x, this.pts[this.pts.length - 1].y + this.y)
+    }
+
+    pop()
+  }
+
+  update() {
+    this.t++
+
+    // 애니메이션 종료되었으니, this.x, this.y 만큼 싸그리 더해주기
+    if (this.t > totalT) {
+      // 새 애니메이션 각도는 이래요~
+      this.t = 0
+      this.currentang += this.tarang
+
+      //pts재설정
+      for (let i = 0; i < this.pts.length; i++) {
+        this.pts[i].x += this.x
+        this.pts[i].y += this.y
+
+        this.pts[i].alpha = 255 - (this.pts.length - i) * 10
+        if (this.pts[i].alpha < -30) {
+          this.pts.splice(i, 1)
+        }
+      }
+      this.pts.push({ x: this.endpt.x, y: this.endpt.y, alpha: 255 })
+      this.tarang = random(-randang, randang)
+      this.endpt = p5.Vector.fromAngle(this.tarang, random(minl, maxl))
+
+    }
+  }
+
+}

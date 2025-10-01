@@ -1,0 +1,83 @@
+let numlines = 1000
+let ranAng = Math.PI
+let minl = 40
+let maxl = 1000
+
+
+// 애니메이션 설정용 시간
+let t1 = 0;
+let t2 = 50;
+
+let totalT = 300;
+
+//
+let center_x = 0
+let center_y = 0
+let vectors = []
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  background(240)
+  minl = 0
+  maxl = width / 2
+  for (let i = 0; i < numlines; i++) {
+    vectors.push(p5.Vector.fromAngle(random(-ranAng, ranAng), random(minl, maxl)))
+  }
+
+
+}
+
+function draw() {
+  // 애니메이션용 설정
+  t1++
+  t2++
+  if (t2>totalT){
+    t2 = totalT
+  }
+  let tt1 = norm(t1, 0, totalT);
+  let tt2 = norm(t2, 0, totalT);
+
+  //
+
+
+  push()
+  translate(width / 2, height / 2)
+  background(230, 220, 100)
+
+  for (let i = 0; i < numlines; i++) {
+    stroke(map(i, 0, numlines, 200, 10))
+    strokeWeight(map(i, 0, numlines, 150, 1));
+    let start_x = vectors[i].x
+    let start_y = vectors[i].y
+
+    // noise를 사용하여 선형 보간된 좌표를 생성
+    //start_x = lerp(start_x, center_x, easeInOutExpo(noise(i * 0.1, tt1) * 2));
+    //start_y = lerp(start_y, center_y, easeInOutExpo(noise(i * 0.1, tt1) * 2));
+    start_x = lerp(start_x, center_x, easeInOutExpo(tt1));
+    start_y = lerp(start_y, center_y,easeInOutExpo(tt1));
+
+    let end_x = lerp(start_x, center_x, easeInOutExpo(tt2));
+    let end_y = lerp(start_y, center_y, easeInOutExpo(tt2));
+    line(start_x, start_y, end_x, end_y);
+  }
+
+  console.log(t1)
+
+  pop()
+
+  if (t1 > totalT) {
+    noLoop()
+    console.log('bye')
+  }
+
+}
+
+// easeInOutExpo: 처음과 끝에서 속도가 느리고 중간에서 빠르게 변하는 값을 반환하는 함수
+// ? 이면 뒤에 것 반환, 아닌 경우 :로 go
+// Math.pow(base, exponent) base는 밑수(base)이고, exponent는 지수(exponent)
+function easeInOutExpo(x) {
+  return x === 0 ? 0
+    : x === 1 ? 1
+      : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2
+        : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}

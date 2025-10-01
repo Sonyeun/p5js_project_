@@ -1,0 +1,137 @@
+//Inspired by: https://i.pinimg.com/originals/bd/fb/bf/bdfbbfdb7d120ab6f165cb74ae55fc99.jpg ; Krzysztof Bil, kompozycja addytywna sześcian
+// plused by
+let counter2 = 0;
+
+function setup() {
+	createCanvas(2000, 1333, WEBGL); // Set canvas size to 2000x1333 (3:2 aspect ratio)
+}
+
+function draw() {
+	background(255); // Set the background color to white (RGB: 255, 255, 255)
+	frameRate(random(9));
+	pointLight(255, 255, 255, -750 + 0 * 50 + random(100), 0 * 50, 150 + 6 * 50);
+	camera((2000 / 14) - 700, 200 + 92.5, 300 + 900 - 740, -800, 200, 0, 0, 1, 0);
+	strokeWeight(1);
+	for (z = -20; z < 2; z++) //create boxes in 3d space
+	{
+		for (y = -5; y < 15; y++) {
+			for (x = -2; x < 3; x++) {
+
+
+				let choice2 = round(random(3)); //choose if a box should be displayed with color, or with borders only
+				if (choice2 == 0) fill(255);
+				else noFill();
+				if (z < -5) noFill(); //if box is far out down the z axis, dont fill it with color
+				push();
+				yinc = random(-900, 900); //random x and y increments for boxes so they are not in a grid
+				xinc = random(-900, 900);
+				translate(-800 + (x * 50) + xinc, (y * 50) - 300 + yinc, 100 + z * 50);
+				box(30, 30, 30);
+				pop();
+
+
+
+				let choice = round(random(5)); //chose if lines should extend out from a box
+				if (choice == 0) {
+					let choice3 = round(random(10)); //choose if we want a huge opaque square positioned somewhere
+					if (choice3 == 0) {
+						push();
+						translate(-800 + (x * 50) + xinc, (y * 50) - 300 + yinc - 10, 100 + (z * 50) - 9);
+						fill(random(200, 250), 20);
+						box(5000, 5000, 1); //size of huge square
+						pop();
+					}
+
+					stroke(random(100));
+					linelength = random(50, 400); //length of line extending out 
+					push(); ///botom front line (left to right)
+					translate(-800 + (x * 50) + xinc, (y * 50) - 300 + yinc + 10, 100 + (z * 50) + 9); //since the boxes are 20x20x20 we modify this code to correctly position where we want our box (line extending out) to be
+					noFill();
+					box(linelength, 0, 1); //this is the bottom front line extending out from where the box is positioned
+					pop();
+
+					linelength = random(50, 300);
+					push(); ///botom back line
+					translate(-800 + (x * 50) + xinc, (y * 50) - 300 + yinc + 10, 100 + (z * 50) - 9);
+					noFill();
+					box(linelength, 0, 1);
+					pop();
+
+					linelength = random(50, 300);
+					push(); ///botom left line
+					translate(-800 + (x * 50) + xinc - 9, (y * 50) - 300 + yinc + 10, 100 + (z * 50));
+					noFill();
+					box(1, 0, linelength);
+					pop();
+
+					linelength = random(50, 300);
+					push(); ///botom right line
+					translate(-800 + (x * 50) + xinc + 9, (y * 50) - 300 + yinc + 10, 100 + (z * 50));
+					noFill();
+					box(1, 0, linelength);
+					pop();
+
+					linelength = random(50, 300);
+					push(); ///up left line
+					translate(-800 + (x * 50) + xinc - 9, (y * 50) - 300 + yinc - 10, 100 + (z * 50));
+					noFill();
+					box(1, 0, linelength);
+					pop();
+
+					linelength = random(50, 300);
+					push(); ///up right line
+					translate(-800 + (x * 50) + xinc + 9, (y * 50) - 300 + yinc - 10, 100 + (z * 50));
+					noFill();
+					box(1, 0, linelength);
+					pop();
+
+					linelength = random(50, 300);
+					push(); ///upper front line
+					translate(-800 + (x * 50) + xinc, (y * 50) - 300 + yinc - 10, 100 + (z * 50) + 9);
+					noFill();
+					box(linelength, 0, 1);
+					pop();
+
+					linelength = random(50, 300);
+					push(); ///upper back line
+					translate(-800 + (x * 50) + xinc, (y * 50) - 300 + yinc - 10, 100 + (z * 50) - 9);
+					noFill();
+					box(linelength, 0, 1);
+					pop();
+
+					linelength = random(50, 200);
+					push(); ///front left
+					translate(-800 + (x * 50) + xinc - 10, (y * 50) - 300 + yinc, 100 + (z * 50));
+					noFill();
+					box(0, linelength, 1);
+					pop();
+
+					linelength = random(50, 200);
+					push(); ///front right
+					translate(-800 + (x * 50) + xinc + 10, (y * 50) - 300 + yinc, 100 + (z * 50));
+					noFill();
+					box(0, linelength, 1);
+					pop();
+
+					linelength = random(50, 200);
+					push(); ///back left
+					translate(-800 + (x * 50) + xinc - 10, (y * 50) - 300 + yinc, 100 + (z * 50) + 10);
+					noFill();
+					box(0, linelength, 1);
+					pop();
+
+					linelength = random(50, 200);
+					push(); ///back right
+					translate(-800 + (x * 50) + xinc + 10, (y * 50) - 300 + yinc, 100 + (z * 50) + 10);
+					noFill();
+					box(0, linelength, 1);
+					pop();
+				}
+
+
+			}
+		}
+	}
+	counter2++;
+	if (counter2 == 1) noLoop();
+}
