@@ -1,0 +1,157 @@
+// Boundary 관련 변수
+const standard_base = width < height ? width : height;
+const standard_dist = standard_base / 6
+const max_area_num = 3;
+
+// Circle 관련 변수
+const interv_circle = 2
+const radius = 12
+const interv_circle_center = 2*radius + interv_circle
+const start_x = standard_dist - (int(standard_dist/interv_circle_center)+1)*interv_circle_center
+const start_y = standard_dist - (int(standard_dist/interv_circle_center)+1)*interv_circle_center
+const circles = [];
+
+//Circle 리스트 생성
+for (let y = start_y; y < height; y += 2*interv_circle_center) {
+  for (let x = start_x; x < width; x += interv_circle_center) {
+    circles.push(new circle(x, y, radius));
+  }
+}
+for (let y = start_y - 2*radius+interv_circle; y < height; y += 2*interv_circle_center) {
+  for (let x = start_x - radius + interv_circle; x < width; x += interv_center) {
+    circles.push(new circle(x, y, radius));
+  }
+}
+
+// Hexagon 관련 변수
+const interv_hexa_center = (7*radius + 3*interv_circle)*2 + interv_circle
+const max_hexa_num = 3
+area1 = []
+area2 = []
+area3 = []
+area4 = []
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  noLoop();
+
+  
+  
+}
+
+function draw() {
+  background(220);
+
+  noStroke();
+  fill(255);
+
+  for (let circle of circles){
+    circle.draw();
+  }
+
+
+}
+
+class circle{
+  constructor(x, y, radius, hexa_num, area_num){
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+
+    this.hexa_num = 0
+    this.area_num = 0
+  }
+
+  draw(){
+    circle(this.x, this.y, this.radius * 2);
+  }
+} 
+
+function create_hexa(area_num){
+  area_list = []
+  min_y = area_num * standard_dist
+  max_y = height - area_num * standard_dist
+  min_x = area_num * standard_dist
+  max_x = width - area_num * standard_dist
+  area_width = max_x - min_x
+  area_height = max_y - min_y
+
+  //points
+  points1_x, points1_y = start_x + int(standard_dist/interv_circle_center)*interv_circle_center, start_y + int((standard_dist*3)/interv_circle_center)*interv_circle_center
+  points2_x, points2_y = points1_x + area_width/4, points1_y - area_height/2
+  points3_x, points3_y = points1_x + area_width/4, points1_y + area_height/2
+  points4_x, points4_y = points2_x + area_width/2, points2_y
+  points5_x, points5_y = points4_3 + area_width/4, points3_y
+  points6_x, points6_y = points1_x + area_width, points1_y
+  //line1 -> 2
+  for (let x = points1_x; x < points2_x; x += interv_hexa_center){
+    for (let y = points1_y; y > points2_y; y -= interv_hexa_center){
+    }
+  }
+  return area_list
+}
+
+
+
+function create_hexa_field(x, y, area_num){
+  center_x = x
+  center_y = y
+  //hexa_num 1
+  area1.push(new circle(center_x, center_y, radius, hexa_num = 1, area_num = area_num))
+  //hexa_num 2
+  area1.push(new circle(center_x+interv_circle_center, center_y, radius, hexa_num = 2, area_num = area_num))
+  area1.push(new circle(center_x+interv_circle_center, center_y+interv_circle_center, radius, hexa_num = 2, area_num = area_num))
+  area1.push(new circle(center_x+interv_circle_center, center_y+interv_circle_center, radius, hexa_num = 2, area_num = area_num))
+
+  //hexa_num 3
+  //hexa_num 4
+  //hexa_num 5
+  //hexa_num 6
+
+
+}
+//중복이 있다 코드에 이걸 이용하자
+function create_hexa_field(center_x, center_y, index, height, center_interval, field_count){
+  /*
+  Hexa Field 생성이라면,
+  create_area:False
+  center_intval: interv_hexa_center
+  field_count: max_hexa_num(몇개를 생성해야 하는가가)
+
+  Area 생성이라면
+  create_area:True
+  center_interval: standard_dist
+  field_count: 1
+  area_num: 0...max_area_num
+
+
+  */
+  area_list = []
+  for (let i = 0; i < field_count; i++){
+    area_list.push(new circle(center_x, center_y, radius, hexa_num = i+1, area_num = i))
+  }
+  return area_list
+}
+
+function create_point(center_x, center_y, index, x_dist, y_dist){
+  /*
+  중심점을 기준으로 index*dist만큼 떨어진 육각형 점을 생성
+  dist는 area 생성 or hexa field 생성 규칙에서 사용하는 main 거리리
+  */
+  x_dist = (index+1)*x_dist;
+  y_dist = (index+1)*y_dist;
+  let point1_x = center_x - x_dist;
+  let point1_y = center_y;
+  let point2_x = point1_x + x_dist/2;
+  let point2_y = point1_y - y_dist;
+  let point3_x = point2_x + x_dist;
+  let point3_y = point2_y;
+  let point4_x = point3_x + x_dist/2;
+  let point4_y = point1_y;
+  let point5_x = point3_x;
+  let point5_y = point4_y - y_dist;
+  let point6_x = point5_x - x_dist;
+  let point6_y = point5_y;
+  
+  return [point1_x, point1_y, point2_x, point2_y, point3_x, point3_y, point4_x, point4_y, point5_x, point5_y, point6_x, point6_y]
+} 

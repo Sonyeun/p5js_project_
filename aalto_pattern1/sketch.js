@@ -1,0 +1,459 @@
+// 9/20 일기
+// assured_dist_y_area 값이 음수가 나온다 => 영역 생성 규칙 수정 필욘ㄴ
+
+// 9/21 일기
+// 원 생성 지점 일치시키기(겹치는 사태 발생생) 그리고 왜 이렇게 좌측으로 치우쳐있지
+
+//9/21 저녁 일기
+// 원 생성 지점 일치시키기기 create_hexa_point 함수 수정 필요
+// 이거 규칙 잘 생각해야 돼 육각형이 정확히 들어맞도록 할 필요 있음 이유는 모르는데 radius 20에 6이면 돌아감
+let width, height
+let time
+let animation_duration 
+let target_area
+let target_hexa 
+
+// Circle 관련 변수
+let interv_circle, radius, interv_circle_center, circle_list
+let start_x, start_y
+
+// Hexa field(중심점을 기준으로 생성된 육각형의 원형 패턴) 관련 변수
+let interv_hexa_center, max_hexa_num, assured_dist_x_hexa, assured_dist_y_hexa
+
+// Area 관련 변수
+let standard_base, standard_dist, max_area_num
+let assured_dist_x_area, assured_dist_y_area, start_point_of_patterns 
+let center_x, center_y
+
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  noLoop()
+  // 캔버스 너비, 높이
+  width = windowWidth
+  height = windowHeight
+  animation_duration = 60
+  time = 0
+  target_area = 0
+  target_hexa = 0
+
+  center_x = width/2
+  center_y = height/2
+  console.log("0.0 setup 시작: 초기 변수 설정", "\n",
+    "width", width, "\n",
+    "height", height, "\n",
+    "center_x", center_x, "\n",
+    "center_y", center_y, "\n",
+  )
+  // Circle 관련 변수 설정
+  interv_circle = 6
+  radius = 20 //이거 radius 20에 6이면 왜 돌아가지?
+  interv_circle_center = 2*radius + interv_circle
+  circle_list = []
+  console.log("0.1 setup 시작: Circle 관련 변수 설정", "\n",
+    "interv_circle", interv_circle, "\n",
+    "radius", radius, "\n",
+    "interv_circle_center", interv_circle_center, "\n",
+    "circle_list", circle_list, "\n",
+  )
+  start_x = center_x - (int(center_x/interv_circle_center)+1)*interv_circle_center
+  start_y = center_y - (int(center_y/interv_circle_center)+1)*interv_circle_center
+
+
+  // 원 생성 지점 일치시키기
+  console.log("0.1.1 setup 시작: Circle 관련 변수 설정", "\n",
+    "start_x", start_x, "\n",
+    "start_y", start_y, "\n",
+  )
+
+  // Hexa field(중심점을 기준으로 생성된 육각형의 원형 패턴) 관련 변수 설정
+  max_hexa_num = 3
+  interv_hexa_center = (interv_circle_center*max_hexa_num + radius)*2 + interv_circle
+  assured_dist_x_hexa = 0
+  assured_dist_y_hexa = 0  
+  console.log("0.2 setup 시작: Hexa field 관련 변수 설정", "\n",
+    "max_hexa_num", max_hexa_num, "\n",
+    "interv_hexa_center", interv_hexa_center, "\n",
+    "assured_dist_x_hexa", assured_dist_x_hexa, "\n",
+    "assured_dist_y_hexa", assured_dist_y_hexa, "\n",
+  )
+
+  // Area 관련 변수 설정
+  standard_base = width < height ? width : height;
+  standard_dist = floor((standard_base/interv_hexa_center) / 6)
+  max_area_num = 3;
+  assured_dist_x_area = standard_dist*interv_hexa_center
+  assured_dist_y_area = assured_dist_x_area*sqrt(3)/2
+  start_point_of_patterns = []
+  if (assured_dist_y_area < 0 || assured_dist_x_area < 0){
+    console.log("경고: assured_dist 값이 음수입니다:", "\n",
+      "assured_dist_x_area", assured_dist_x_area, "\n",
+      "assured_dist_y_area", assured_dist_y_area, "\n",
+      "assured_dist: width - 2*(standard_dist+ max_area_num*interv_hexa_center)", "\n",
+      "width", width, "height", height, "\n",
+      "standard_dist", standard_dist, "\n",
+      "max_area_num", max_area_num, "\n",
+      "interv_hexa_center", interv_hexa_center, "\n",
+    )
+  }
+  
+  console.log("0.3 setup 시작: Area 관련 변수 설정", "\n",
+    "standard_base", standard_base, "\n",
+    "standard_dist", standard_dist, "\n",
+    "max_area_num", max_area_num, "\n",
+    "assured_dist_x_area", assured_dist_x_area, "\n",
+    "assured_dist_y_area", assured_dist_y_area, "\n",
+  )
+
+  // 패턴 영역 구분 각 패턴 시작작점 생성
+  console.log("------------------1. 영역 구분을 위한 꼭짓점 생성 시작------------------")
+  for (let i = 0; i <= max_area_num; i++){
+    console.log(`${i}번째 영역 구분을 위한 꼭짓점 생성 시작`)
+    start_point_of_patterns.push(create_hexa_field(create_area = true, center_x, center_y, i, max_area_num, assured_dist_x_area, assured_dist_y_area, interv_hexa_center, sqrt(3)*interv_hexa_center/2))
+  }
+  console.log("------------------1. 영역 구분을 위한 꼭짓점 생성 완료------------------")
+  console.log("--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------")
+  console.log("--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------")
+  console.log("--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------")
+  console.log("--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------")
+
+
+  // 중심점 주변의 원형 점 생성
+  // 영역에 해당하는 중심점 리스트 꺼내기
+  console.log("------------------2. 꼭짓점 주변의 원형 점 생성 시작------------------")
+  for (let i = 0; i <= max_area_num; i++){
+    start_points = start_point_of_patterns[i]
+
+    // 영역에 해당하는 중심점 꺼내기
+    for (let j = 0; j < start_points.length; j++){
+      start_point = start_points[j]
+
+      // 중심점 주변으로 육각 사이즈의 원형 패턴 생성
+      for (let k = 0; k <= max_hexa_num; k++){
+        //console.log(`${i}번째 영역에 해당하는 중심점 리스트, ${j}번째 중심점 꺼내기, ${k}번째의 육각 패턴 그리리기`)
+        hexa_field = create_hexa_field(create_area = false, start_point[0], start_point[1], index = k, max_hexa_num, assured_dist_x_hexa, assured_dist_y_hexa, interv_circle_center, sqrt(3)*interv_circle_center/2)
+
+        for (let l = 0; l < hexa_field.length; l++){
+          circle_list.push(new circle_center(hexa_field[l][0], hexa_field[l][1], radius, area_num = i, num_in_area = j, hexa_num = k, num_in_hexa = l))
+        }
+      }
+    }
+  }
+
+//Circle 리스트 생성
+for (let y = start_y; y < height; y += 2*interv_circle_center) {
+  for (let x = start_x; x < width; x += interv_circle_center) {
+    if((x, y) not in circle_list){
+      circle_list.push(new circle(x, y, radius));
+  }
+}
+for (let y = start_y - 2*radius+interv_circle; y < height; y += 2*interv_circle_center) {
+  for (let x = start_x - radius + interv_circle; x < width; x += interv_center) {
+    circle_list.push(new circle(x, y, radius));
+  }
+}
+  console.log("------------------2. 꼭짓점 주변의 원형 점 생성 완료------------------")
+  console.log("--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------")
+  console.log("--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------", "\n", "--------------------------------")
+}
+
+
+
+function draw() {
+  background(255);
+  fill(0);
+  for (let circle_center of circle_list){
+    if (circle_center.area_num == target_area && circle_center.hexa_num == target_hexa){
+      circle_center.go = true
+    }
+    circle_center.draw_circle();
+    circle_center.update_circle();
+  }
+  time++
+  if (time > 1* animation_duration){
+    target_area = 1
+    target_hexa = 0
+  }
+  if (time > 2* animation_duration){
+    target_area = 2
+    target_hexa = 0
+  }
+  if (time > 3* animation_duration){
+    target_area = 3
+    target_hexa = 0
+  }
+  if (time > 4* animation_duration){
+    target_area = 0
+    target_hexa = 1
+  }
+  if (time > 5* animation_duration){
+    target_area = 0
+    target_hexa = 2
+  }
+  if (time > 6* animation_duration){
+    target_area = 0
+    target_hexa = 3
+  }
+  if (time > 7* animation_duration){
+    target_area = 1
+    target_hexa = 1
+  }
+  if (time > 8* animation_duration){
+    target_area = 1
+    target_hexa = 2
+  }
+  if (time > 9* animation_duration){
+    target_area = 1
+    target_hexa = 3
+  }
+  if (time > 10* animation_duration){
+    target_area = 2
+    target_hexa = 1
+  }
+  if (time > 11* animation_duration){
+    target_area = 2
+    target_hexa = 2
+  }
+  if (time > 12* animation_duration){
+    target_area = 2
+    target_hexa = 3
+  }
+
+  if (time > 13* animation_duration){
+    target_area = 3
+    target_hexa = 1
+  }
+  if (time > 14* animation_duration){
+    target_area = 3
+    target_hexa = 2
+  }
+  if (time > 15* animation_duration){
+    target_area = 3
+    target_hexa = 3
+  }
+
+
+  /*
+  found_circles = find_circles(area_num = 0, num_in_area = 0, hexa_num = 0, num_in_hexa = 0);
+  found_circles = find_circles(area_num = 0, num_in_area = 1, hexa_num = 0, num_in_hexa = 0);
+  found_circles = find_circles(area_num = 0, num_in_area = 2, hexa_num = 0, num_in_hexa = 0);
+  found_circles = find_circles(area_num = 0, num_in_area = 3, hexa_num = 0, num_in_hexa = 0);
+  found_circles = find_circles(area_num = 0, num_in_area = 4, hexa_num = 0, num_in_hexa = 0);
+  found_circles = find_circles(area_num = 0, num_in_area = 5, hexa_num = 0, num_in_hexa = 0);
+  */
+} 
+
+
+class circle_center{
+  constructor(x, y, target_radius, area_num, num_in_area, hexa_num, num_in_hexa){
+    this.x = x;
+    this.y = y;
+    this.target_radius = radius;
+    this.radius = 0
+    this.t = 0
+    this.go = false
+    
+
+    this.area_num = area_num
+    this.num_in_area = num_in_area
+    this.hexa_num = hexa_num
+    this.num_in_hexa = num_in_hexa
+
+    this.fill_color = color(0, 0, 0);
+    if(area_num == 0){
+      this.fill_color = color(255, 0, 0);
+    }
+    else if(area_num == 1){
+      this.fill_color = color(0, 255, 0);
+    }
+    else if(area_num == 2){
+      this.fill_color = color(0, 0, 255);
+    }
+    else if(area_num == 3){ 
+      this.fill_color = color(255, 255, 0);
+    }
+
+    if(hexa_num == 0){
+      this.fill_alpha = 255;
+    }
+    else if(hexa_num == 1){
+      this.fill_alpha = 127;
+    }
+    else if(hexa_num == 2){
+      this.fill_alpha = 63;
+    }
+    else if(hexa_num == 3){
+      this.fill_alpha = 31;
+    }
+  }
+
+  draw_circle(){
+    if (this.go){
+      noStroke();
+      fill(red(this.fill_color), green(this.fill_color), blue(this.fill_color), this.fill_alpha);
+      circle(this.x, this.y, this.radius * 2);
+    }
+  }
+
+  update_circle(){
+    if (this.go){
+    this.radius = easeInOutExpo(this.t / animation_duration) * this.target_radius;
+    this.t++;
+    }
+  }
+} 
+
+function find_circles(area_num_query, num_in_area_query, hexa_num_query, num_in_hexa_query) {
+  // circle_list의 모든 요소를 확인하면서
+  const result = circle_list.filter(circle_obj => {
+    // 각 원의 area_num, center_point_index, hexa_num이
+    // 우리가 찾는 값과 모두 일치하는지 확인합니다.
+    return circle_obj.area_num === area_num_query &&
+           circle_obj.num_in_area === num_in_area_query &&
+           circle_obj.hexa_num === hexa_num_query &&
+           circle_obj.num_in_hexa === num_in_hexa_query;
+  });
+
+  console.log("found_circle", "area_num:", area_num_query, "num_in_area:", num_in_area_query, "hexa_num:", hexa_num_query, "num_in_hexa:", num_in_hexa_query, "\n",
+  "x:", result[0].x, "y:", result[0].y)
+}
+
+
+
+
+// easeInOutExpo: 처음과 끝에서 속도가 느리고 중간에서 빠르게 변하는 값을 반환하는 함수
+// ? 이면 뒤에 것 반환, 아닌 경우 :로 go
+// Math.pow(base, exponent) base는 밑수(base)이고, exponent는 지수(exponent)
+function easeInOutExpo(x) {
+  return x === 0 ? 0
+    : x === 1 ? 1
+      : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2
+        : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}
+
+//중복이 있다 코드에 이걸 이용하자
+function create_hexa_field(create_area, center_x, center_y, index, max_index, assured_x_dist, assured_y_dist, x_dist, y_dist){
+
+  // 육각형 꼭짓점 생성
+  point_list = []
+  console.log("1.1.1. create_hexa_field: 육각형 꼭짓점 생성 시작", "\n",
+    "Center_x: ", center_x, '\n', 
+    "Center_y: ", center_y, '\n', 
+    "Index: ", index, '\n', 
+    "Max_index: ", max_index, '\n', 
+    "Assured_x_dist: ", assured_x_dist, '\n', 
+    "Assured_y_dist: ", assured_y_dist, '\n', 
+    "X_dist: ", x_dist, '\n', 
+    "Y_dist: ", y_dist, '\n')
+  let [point1, point2, point3, point4, point5, point6] = create_hexa_point(create_area, center_x, center_y, index, max_index, assured_x_dist, assured_y_dist, x_dist, y_dist)
+  console.log("1.1.2. create_hexa_field: 육각형 꼭짓점 생성결과", "\n", "point1:", point1, '\n', "point2:", point2, '\n', "point3:", point3, '\n', "point4:", point4, '\n', "point5:", point5, '\n', "point6:", point6)
+  
+  
+  // 육각형 꼭짓점 사이의 점점 생성
+  console.log("1.2.1. create_linear_point: 육각형 꼭짓점 사이의 점 생성 시작")
+  added_point_set = new Set()
+  // point1 -> point2
+  create_linear_point(create_area, point_list, added_point_set, point1, point2, index)
+
+  // point2 -> point3
+  create_linear_point(create_area, point_list, added_point_set, point2, point3, index)
+
+  // point3 -> point4
+  create_linear_point(create_area, point_list, added_point_set, point3, point4, index)
+
+  // point4 -> point5
+  create_linear_point(create_area, point_list, added_point_set, point4, point5, index)
+
+  // point5 -> point6
+  create_linear_point(create_area, point_list, added_point_set, point5, point6, index)
+
+  // point6 -> point1
+  create_linear_point(create_area,point_list, added_point_set, point6, point1, index)
+
+  console.log("1.2.2. create_hexa_field: 육각형 꼭짓점 사이의 점 생성 결과", "\n", "point_list:", point_list)
+  return point_list
+}
+
+function create_hexa_point(create_area, center_x, center_y, index, max_index, assured_x_dist, assured_y_dist, x_dist, y_dist){
+  /*
+  중심점을 기준으로 index*dist만큼 떨어진 육각형 점을 생성
+  dist는 area 생성 or hexa field 생성 규칙에서 사용하는 main 거리(같은 거 아는데, 나중에 다양한 변형을 하고 싶은 경우를 대비해서 여지를 남김김)
+  */
+  //y_dist = sqrt(3)*y_dist/2
+  let indexed_x_dist, indexed_y_dist
+  if (create_area){
+    indexed_x_dist = (index+1)*x_dist;
+    indexed_y_dist = (index+1)*y_dist;
+  }
+  else{
+    indexed_x_dist = index*x_dist;
+    indexed_y_dist = index*y_dist;
+  }
+  
+  let point1_x = center_x - assured_x_dist/2 - indexed_x_dist;
+  let point1_y = center_y;
+  let point2_x = point1_x + assured_x_dist/4 + indexed_x_dist/2;
+  let point2_y = center_y - assured_y_dist/2 - indexed_y_dist;
+  let point3_x = point2_x + assured_x_dist/2 + indexed_x_dist;
+  let point3_y = point2_y;
+  let point4_x = center_x + assured_x_dist/2 + indexed_x_dist;
+  let point4_y = center_y;
+  let point5_x = point3_x;
+  let point5_y = center_y + assured_y_dist/2 + indexed_y_dist;
+  let point6_x = point2_x;
+  let point6_y = point5_y;
+  
+ /*
+  let point1_x = center_x - assured_x_dist/2 - indexed_x_dist;
+  let point1_y = center_y;
+  let point2_x = point1_x + indexed_x_dist/2;
+  let point2_y = point1_y - assured_y_dist/2 - indexed_y_dist;
+  let point3_x = point2_x + indexed_x_dist;
+  let point3_y = point2_y;
+  let point4_x = point3_x + indexed_x_dist/2;
+  let point4_y = point1_y;
+  let point5_x = point3_x;
+  let point5_y = point4_y + indexed_y_dist;
+  let point6_x = point5_x - indexed_x_dist;
+  let point6_y = point5_y;
+*/
+  return [[point1_x, point1_y], [point2_x, point2_y], [point3_x, point3_y], [point4_x, point4_y], [point5_x, point5_y], [point6_x, point6_y]]
+} 
+
+function create_linear_point(create_area, point_list, added_point_set, point_a, point_b, index){
+  let num_points
+  
+  const start_point = createVector(point_a[0], point_a[1])
+  const end_point = createVector(point_b[0], point_b[1])
+  const total_dist = start_point.dist(end_point)
+  const interv = create_area ? interv_hexa_center : interv_circle_center
+  
+  console.log("total_dist", total_dist)
+  console.log("interv", interv)
+  num_points = total_dist/ interv
+  console.log("num_points", num_points)
+
+  // 0% 지점(시작점)부터 100% 지점(끝점)까지 점을 생성합니다.
+  for (let i = 0; i <= num_points; i++) {
+    const t = (num_points === 0) ? 0 : i / num_points;
+
+    // p5.Vector.lerp() 함수로 중간 지점의 좌표(벡터)를 계산합니다.
+    const new_point_vector = p5.Vector.lerp(start_point, end_point, t);
+
+        // 부동소수점 오차를 줄이기 위해 좌표를 소수점 3자리까지 반올림합니다.
+    const x = round(new_point_vector.x, 3);
+    const y = round(new_point_vector.y, 3);
+
+    // 점 좌표를 "x,y" 형태의 고유한 문자열 키로 만듭니다.
+    const point_key = `${x},${y}`;
+
+    // 1. Set에 이 점이 기록되어 있는지 확인합니다.
+    if (!added_point_set.has(point_key)) {
+      // 2. Set에 없다면, 새로운 점이므로 Set에 기록하고 리스트에 추가합니다.
+      added_point_set.add(point_key);
+      point_list.push([x, y]);
+    }
+    // 3. Set에 이미 있다면, 중복된 점이므로 아무것도 하지 않습니다.
+  }
+  return point_list;
+}
