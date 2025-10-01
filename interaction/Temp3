@@ -1,0 +1,234 @@
+// Handpose 모델 및 비디오 관련 변수
+let handpose;
+let video;
+let predictions = [];
+
+// 다이아몬드(마름모) 관련 변수
+let diamonds = [];
+let spreadCount = 0; // 제스처 횟수 카운터
+
+// 제스처 감지를 위한 상태 변수
+let handState = 'UNKNOWN'; // 손의 현재 상태 ('OPEN', 'CLOSED', 'UNKNOWN')
+let lastHandState = 'UNKNOWN'; // 직전 프레임의 손 상태
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  video = createCapture(VIDEO, () => {
+    // 웹캠 로딩 후 모델 초기화
+    handpose = ml5.handpose(video, modelReady);
+    handpose.on('predict', results => {
+      predictions = results;
+    });
+  });
+  video.size(640, 480);
+  video.hide();
+}
+
+function modelReady() {
+  console.log("Handpose 모델 준비 완료! 👋");
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+
+function draw() {
+  background(255);
+
+  // 1. 손 제스처 감지 및 상태 업데이트
+  updateHandState();
+
+  // 2. 제스처 상태 변화에 따른 이벤트 처리
+  // '주먹 쥔 상태' -> '편 상태'로 바뀔 때 마름모 생성
+  if (handState === 'OPEN' && lastHandState !== 'OPEN') {
+    spreadCount++;
+    console.log(`손 펼침 감지! (${spreadCount}번째) 💎`);
+    generateDiamondGrid(spreadCount, predictions[0].landmarks);
+  }
+
+  // '편 상태' -> '주먹 쥔 상태'로 바뀔 때 마름모 제거
+  if (handState === 'CLOSED' && lastHandState !== 'CLOSED') {
+    console.log("주먹 쥠 감지! 🤏");
+    shrinkLatestDiamonds();
+  }
+
+  // 3. 모든 마름모 업데이트 및 그리기
+  updateAndDrawDiamonds();
+
+  // 현재 프레임의 손 상태를 이전 상태로 저장
+  lastHandState = handState;
+}
+
+
+/**
+ * @brief 손가락 랜드마크를 분석하여 현재 손의 상태를 'OPEN' 또는 'CLOSED'로 업데이트합니다.
+ */
+function updateHandState() {
+  if (predictions.length === 0) {
+    handState = 'UNKNOWN';
+    return;
+  }
+
+  const landmarks = predictions[0].landmarks;
+  let fingersUp = 0;
+
+  // 각 손가락이 펴졌는지 확인 (엄지는 x좌표, 나머지는 y좌표 기준)
+  if (landmarks[4][0] > landmarks[3][0]) fingersUp++;   // 엄지
+  if (landmarks[8][1] < landmarks[6][1]) fingersUp++;   // 검지
+  if (landmarks[12][1] < landmarks[10][1]) fingersUp++; // 중지
+  if (landmarks[16][1] < landmarks[14][1]) fingersUp++; // 약지
+  if (landmarks[20][1] < landmarks[18][1]) fingersUp++; // 새끼
+
+  // 4개 이상의 손가락이 펴지면 'OPEN', 1개 이하면 'CLOSED'로 판단
+  if (fingersUp >= 4) {
+    handState = 'OPEN';
+  } else if (fingersUp <= 1) {
+    handState = 'CLOSED';
+  } else {
+    handState = 'UNKNOWN'; // 중간 상태
+  }
+}
+
+
+/**
+ * @brief 화면 전체에 마름모를 격자 형태로 생성합니다.
+ * @param {number} id - 몇 번째 제스처로 생성되었는지 식별하는 번호
+ * @param {Array} landmarks - 손의 랜드마크 좌표
+ */
+function generateDiamondGrid(id, landmarks) {
+  // 손가락 끝점 사이의 최대 거리를 계산하여 마름모의 기본 크기를 정함
+  let maxDistance = 0;
+  for (let i = 0; i < 5; i++) {
+    for (let j = i + 1; j < 5; j++) {
+      const finger1 = landmarks[4 + i * 4];
+      const finger2 = landmarks[4 + j * 4];
+      const d = dist(finger1[0], finger1[1], finger2[0], finger2[1]);
+      if (d > maxDistance) {
+        maxDistance = d;
+      }
+    }
+  }
+
+  const diamondSize = map(maxDistance, 50, 300, 15, 50); // 최소 15, 최대 50 크기로 매핑
+  const margin = 50; // 화면 가장자리 여백
+  
+  // 마름모의 실제 렌더링될 대각선 길이를 기준으로 간격을 계산하여 겹치지 않도록 함
+  const spacing = diamondSize * 2.2; // 크기의 2.2배로 간격 설정
+
+  // 화면 너비와 높이에 맞춰 생성될 마름모의 개수(열, 행) 계산
+  const cols = floor((width - margin * 2) / spacing);
+  const rows = floor((height - margin * 2) / spacing);
+
+  // 그리드가 화면 중앙에 오도록 시작 위치 계산
+  const gridWidth = (cols - 1) * spacing;
+  const gridHeight = (rows - 1) * spacing;
+  const startX = (width - gridWidth) / 2;
+  const startY = (height - gridHeight) / 2;
+
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const x = startX + i * spacing;
+      const y = startY + j * spacing;
+      const diamond = new Diamond(x, y, diamondSize, id);
+      diamond.startAnimation();
+      diamonds.push(diamond);
+    }
+  }
+}
+
+/**
+ * @brief 가장 최근에 생성된 마름모 그룹을 찾아 축소/제거 애니메이션을 시작합니다.
+ */
+function shrinkLatestDiamonds() {
+  if (spreadCount === 0) return; // 생성된 마름모가 없으면 종료
+
+  for (let diamond of diamonds) {
+    // 현재 제스처 횟수와 동일한 ID를 가진 마름모만 대상으로 함
+    if (diamond.spreadNumber === spreadCount && !diamond.isShrinking) {
+      diamond.startShrinking();
+    }
+  }
+}
+
+/**
+ * @brief diamonds 배열을 순회하며 각 마름모를 업데이트하고 그립니다.
+ */
+function updateAndDrawDiamonds() {
+  // 살아있는 마름모만 필터링 (애니메이션이 끝나 삭제될 대상은 제외)
+  diamonds = diamonds.filter(diamond => !diamond.shouldDelete);
+
+  for (let diamond of diamonds) {
+    diamond.update();
+    diamond.draw();
+  }
+}
+
+
+// Easing 함수 (부드러운 애니메이션 효과)
+function easeInOutExpo(x) {
+  return x === 0 ? 0 : x === 1 ? 1 : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2 : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}
+
+
+// --- Diamond Class (마름모 객체) ---
+// (기존 코드와 대부분 동일하며, 로직 변경 없음)
+class Diamond {
+  constructor(centerX, centerY, size, spreadNumber) {
+    this.centerX = centerX;
+    this.centerY = centerY;
+    this.size = size;
+    this.spreadNumber = spreadNumber; // 생성된 제스처의 ID
+    this.currentSize = 0;
+    this.targetSize = size;
+    this.animationTime = 0;
+    this.animationDuration = 60; // 60프레임 (약 1초) 동안 애니메이션
+    this.isAnimating = false;
+    this.isShrinking = false;
+    this.shouldDelete = false;
+  }
+
+  draw() {
+    push();
+    fill(0);
+    noStroke();
+    translate(this.centerX, this.centerY);
+    rotate(PI / 4); // 45도 회전하여 마름모 شكل 만들기
+    rectMode(CENTER);
+    rect(0, 0, this.currentSize * 1.5, this.currentSize * 1.5); // 마름모 크기 조절
+    pop();
+  }
+
+  startAnimation() {
+    this.isAnimating = true;
+    this.animationTime = 0;
+  }
+
+  startShrinking() {
+    this.isShrinking = true;
+    this.animationTime = 0;
+    this.targetSize = this.currentSize; // 현재 크기에서부터 줄어들도록 설정
+  }
+
+  update() {
+    if (this.isAnimating) {
+      this.animationTime++;
+      let progress = this.animationTime / this.animationDuration;
+      if (progress >= 1) {
+        progress = 1;
+        this.isAnimating = false;
+      }
+      this.currentSize = lerp(0, this.targetSize, easeInOutExpo(progress));
+    }
+
+    if (this.isShrinking) {
+      this.animationTime++;
+      let progress = this.animationTime / this.animationDuration;
+      if (progress >= 1) {
+        progress = 1;
+        this.isShrinking = false;
+        this.shouldDelete = true; // 애니메이션 끝나면 삭제 대상으로 표시
+      }
+      this.currentSize = lerp(this.targetSize, 0, easeInOutExpo(progress));
+    }
+  }
+}

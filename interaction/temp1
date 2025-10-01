@@ -1,0 +1,108 @@
+// 1. 전역 변수
+let video;
+let handpose;
+let predictions = [];
+let currentGesture = "알 수 없음";
+
+// 2. setup 함수
+function setup() {
+  createCanvas(400, 400);
+  video = createCapture(VIDEO);
+  video.size(width, height);
+  video.hide();
+
+  handpose = ml5.handpose(video, modelReady);
+
+  handpose.on('predict', results => {
+    predictions = results;
+    if (predictions.length > 0) {
+      defineGesture(predictions[0]);
+    } else {
+      currentGesture = "손이 감지되지 않음";
+    }
+  });
+}
+
+// 3. draw 함수
+function draw() {
+  // 웹캠 화면을 좌우 반전해서 보여줍니다 (거울 모드)
+  translate(width, 0);
+  scale(-1, 1);
+  image(video, 0, 0, width, height);
+  
+  // 그림과 텍스트는 정상적으로 보이기 위해 다시 좌표계를 원래대로 돌립니다
+  translate(width, 0);
+  scale(-1, 1);
+
+  drawKeypoints();
+  
+  // 현재 인식된 제스처 텍스트를 오른쪽 위에 표시합니다
+  fill(255, 0, 0);
+  noStroke();
+  textSize(28);
+  textAlign(RIGHT, TOP);
+  text(currentGesture, width - 10, 10);
+}
+
+
+// 4. 보조 함수들
+function modelReady() {
+  console.log("Handpose 모델 준비 완료!");
+}
+
+function drawKeypoints() {
+  for (let i = 0; i < predictions.length; i++) {
+    const prediction = predictions[i];
+    for (let j = 0; j < prediction.landmarks.length; j++) {
+      const keypoint = prediction.landmarks[j];
+      fill(0, 255, 0);
+      noStroke();
+      ellipse(keypoint[0], keypoint[1], 10, 10);
+    }
+  }
+}
+
+function defineGesture(prediction) {
+  const landmarks = prediction.landmarks;
+  
+  const thumbTip = landmarks[4];
+  const indexTip = landmarks[8];
+  const middleTip = landmarks[12];
+  const ringTip = landmarks[16];
+  const pinkyTip = landmarks[20];
+  const palmBase = landmarks[0];
+  const indexKnuckle = landmarks[5];
+  const middleKnuckle = landmarks[9];
+  const ringKnuckle = landmarks[13];
+  const pinkyKnuckle = landmarks[17];
+
+  // 주먹 쥐기 (Fist)
+  if (dist(indexTip[0], indexTip[1], palmBase[0], palmBase[1]) < 50 &&
+      dist(middleTip[0], middleTip[1], palmBase[0], palmBase[1]) < 70) {
+    currentGesture = "주먹 ✊";
+    return;
+  }
+  
+  // 손바닥 펴기 (Open Palm)
+  if (indexTip[1] < indexKnuckle[1] && middleTip[1] < middleKnuckle[1] &&
+      ringTip[1] < ringKnuckle[1] && pinkyTip[1] < pinkyKnuckle[1]) {
+    currentGesture = "손바닥 ✋";
+    return;
+  }
+
+  // 핀치 (Pinch)
+  if (dist(thumbTip[0], thumbTip[1], indexTip[0], indexTip[1]) < 30) {
+    currentGesture = "핀치 👌";
+    return;
+  }
+  
+  // 포인팅 (Pointing)
+  if (indexTip[1] < indexKnuckle[1] &&
+      dist(middleTip[0], middleTip[1], palmBase[0], palmBase[1]) < 80 &&
+      dist(ringTip[0], ringTip[1], palmBase[0], palmBase[1]) < 80) {
+    currentGesture = "포인팅 👉";
+    return;
+  }
+
+  currentGesture = "알 수 없음";
+}

@@ -1,0 +1,169 @@
+let handpose;
+let video;
+let predictions = [];
+
+let rhombusSize = 40; // 초기 마름모 크기
+const padding = 50; // 캔버스 가장자리 여백
+
+// C-1, C-2 효과를 위한 변수
+let colorOffset = 0;
+let rotationAngle = 0;
+
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  video = createCapture(VIDEO);
+  video.size(width, height);
+
+  handpose = ml5.handpose(video, modelReady);
+
+  handpose.on("predict", results => {
+    predictions = results;
+  });
+
+  video.hide();
+}
+
+function modelReady() {
+  console.log("Model ready!");
+}
+
+function draw() {
+  background(255);
+  drawPattern();
+  drawLandmarks();
+  handleInteraction();
+}
+
+// 기본 마름모 패턴 그리기
+function drawPattern() {
+  for (let y = padding; y < height - padding; y += rhombusSize) {
+    for (let x = padding; x < width - padding; x += rhombusSize) {
+      let currentSize = rhombusSize;
+      
+      // B-1: 확대/축소 상호작용 시 크기 조절 로직
+      if (predictions.length > 0 && predictions[0].landmarks.length > 8 && predictions.length === 1) {
+         if (predictions[0].annotations.indexFinger.length > 3 && predictions[0].annotations.thumb.length > 3) {
+            const finger1 = predictions[0].annotations.thumb[3];
+            const finger2 = predictions[0].annotations.indexFinger[3];
+            const midX = (finger1[0] + finger2[0]) / 2;
+            const midY = (finger1[1] + finger2[1]) / 2;
+            const distToCenter = dist(x, y, midX, midY);
+
+            // 두 손가락 중심점에 가까울수록 크기 변화에 크게 반응
+            if (distToCenter < rhombusSize * 2) {
+                const handDist = dist(finger1[0], finger1[1], finger2[0], finger2[1]);
+                const baseDist = 100; // 기준 거리
+                currentSize = map(handDist, 20, 300, rhombusSize * 0.2, rhombusSize * 4, true);
+            }
+         }
+      }
+
+      push();
+      translate(x, y);
+      
+      // C-2: 위아래 스와이프 시 회전
+      rotate(rotationAngle); 
+
+      // C-1: 좌우 스와이프 시 색상 변경
+      let r = 0 + colorOffset;
+      let g = 0 - colorOffset;
+      let b = 0;
+      fill(r, g, b);
+      stroke(0);
+      
+      beginShape();
+      vertex(0, -currentSize / 2);
+      vertex(currentSize / 2, 0);
+      vertex(0, currentSize / 2);
+      vertex(-currentSize / 2, 0);
+      endShape(CLOSE);
+      pop();
+    }
+  }
+}
+
+// 손가락 끝점 표시
+function drawLandmarks() {
+  for (let i = 0; i < predictions.length; i += 1) {
+    const prediction = predictions[i];
+    
+    // A, B, C 방식에 따른 끝점 표시
+    // A: 손가락 1개 (엄지 끝)
+    if (prediction.landmarks.length > 4) { // 엄지가 인식될 때
+        const thumb = prediction.landmarks[4];
+        fill(255, 0, 0);
+        noStroke();
+        ellipse(thumb[0], thumb[1], 10, 10);
+    }
+
+    // B: 손가락 2개 (엄지와 검지 끝)
+    if (prediction.landmarks.length > 8) {
+        const thumb = prediction.landmarks[4];
+        const index = prediction.landmarks[8];
+        fill(255, 0, 0);
+        noStroke();
+        ellipse(thumb[0], thumb[1], 10, 10);
+        ellipse(index[0], index[1], 10, 10);
+    }
+    
+    // C: 손가락 5개 끝점
+    if (prediction.landmarks.length > 20) {
+        const keypoints = [4, 8, 12, 16, 20]; // 각 손가락 끝점 인덱스
+        for (let j = 0; j < keypoints.length; j++) {
+            const keypoint = prediction.landmarks[keypoints[j]];
+            fill(255, 0, 0);
+            noStroke();
+            ellipse(keypoint[0], keypoint[1], 10, 10);
+        }
+    }
+  }
+}
+
+// 손동작 상호작용 처리
+function handleInteraction() {
+  if (predictions.length > 0) {
+    const hand = predictions[0];
+    const landmarks = hand.landmarks;
+
+    // C 방식: 손가락 5개
+    if (landmarks.length > 20) {
+      const palmBase = landmarks[0];
+      const middleFingerTip = landmarks[12];
+      const indexFingerTip = landmarks[8];
+      
+      const horizontalMovement = indexFingerTip[0] - palmBase[0];
+      const verticalMovement = middleFingerTip[1] - palmBase[1];
+
+      // C-1: 좌우 스와이프 (창의적 해석: 색상 변화)
+      // 손바닥 중심을 기준으로 검지 끝이 얼마나 좌우로 갔는지 측정
+      if (abs(horizontalMovement) > 50) { 
+        colorOffset = map(horizontalMovement, -200, 200, -255, 255);
+      } else {
+        colorOffset = lerp(colorOffset, 0, 0.1); // 서서히 원래 색으로
+      }
+
+      // C-2: 상하 스와이프 (창의적 해석: 전체 패턴 회전)
+      // 손바닥 중심을 기준으로 중지 끝이 얼마나 위아래로 갔는지 측정
+      if (abs(verticalMovement) < -50) {
+        rotationAngle += 0.01;
+      } else if(abs(verticalMovement) > 50){
+        rotationAngle -= 0.01;
+      }
+      else {
+        // 움직임이 없을 때 서서히 원래 각도로 복귀
+         if(rotationAngle > 0.01) rotationAngle -= 0.005;
+         else if(rotationAngle < -0.01) rotationAngle += 0.005;
+         else rotationAngle = 0;
+      }
+    } else {
+        // 손이 인식되지 않으면 효과 초기화
+        colorOffset = lerp(colorOffset, 0, 0.1);
+        rotationAngle = lerp(rotationAngle, 0, 0.1);
+    }
+  }
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}

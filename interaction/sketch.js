@@ -1,0 +1,567 @@
+// ========================================
+// 설정 섹션 - 여기서 값들을 쉽게 변경하세요!
+// ========================================
+
+// 손가락 감지 설정
+const FINGER_DETECTION = {
+  // 펼치기 감지 임계값 (기준거리별)
+  SPREAD_THRESHOLD_MIN: 0.80,    // 기준거리 ≤ 50px일 때 (80%)
+  SPREAD_THRESHOLD_MAX: 0.30,    // 기준거리 ≥ 150px일 때 (30%)
+  
+  // 오므라임 감지 임계값 (기준거리별)
+  CLOSE_THRESHOLD_MIN: 0.80,     // 기준거리 ≤ 50px일 때 (80%)
+  CLOSE_THRESHOLD_MAX: 0.60,     // 기준거리 ≥ 150px일 때 (60%)
+  
+  // 최소 거리 및 변화량
+  MIN_DISTANCE: 50,              // 최소 거리 임계값 (px)
+  MIN_CHANGE: 20,                // 최소 변화량 (px)
+  MIN_CLOSE_DISTANCE: 10,        // 오므라임 최소 거리 (px)
+  
+  // 쿨다운 설정
+  SPREAD_COOLDOWN_FRAMES: 60,    // 펼치기 감지 후 쿨다운 (약 1초)
+  
+  // 기준거리 범위
+  BASELINE_MIN: 50,              // 최소 기준거리 (px)
+  BASELINE_MAX: 150,             // 최대 기준거리 (px)
+};
+
+// 마름모 생성 설정
+const DIAMOND_GENERATION = {
+  // 마름모 크기 설정
+  MIN_SIZE: 3,                   // 최소 마름모 크기 (px)
+  MAX_SIZE_RATIO: 7,             // 최대 크기 (화면 가로 / 7)
+  MIN_DISTANCE_MAP: 50,          // 매핑 최소 거리 (px)
+  MAX_DISTANCE_MAP: 400,         // 매핑 최대 거리 (px)
+  
+  // 거리 가중치 (기준거리 : 펼친거리)
+  BASELINE_WEIGHT: 0.6,          // 기준거리 가중치
+  SPREAD_WEIGHT: 0.4,            // 펼친거리 가중치
+  
+  // 그리드 설정
+  SPACING_MULTIPLIER: 2.2,       // 마름모 간격 배수
+  MARGIN: -50,                   // 화면 밖 마진 (px)
+};
+
+// 박수 감지 설정
+const CLAP_DETECTION = {
+  THRESHOLD: 0.45,               // 박수 감지 임계값
+  COOLDOWN_FRAMES: 60,           // 박수 감지 후 쿨다운 (약 1초)
+  SHRINK_INTERVAL: 15,           // 박수 삭제 간격 (프레임)
+};
+
+// 순차 삭제 설정
+const SEQUENTIAL_DELETION = {
+  SHRINK_INTERVAL: 3,            // 순차 삭제 간격 (프레임)
+};
+
+// 애니메이션 설정
+const ANIMATION = {
+  DURATION: 60,                  // 애니메이션 지속 시간 (프레임)
+};
+
+// ========================================
+// 기존 변수들 (설정값 사용)
+// ========================================
+
+// Handpose 모델 및 비디오 관련 변수
+let handpose;
+let video;
+let predictions = [];
+
+// 다이아몬드(마름모) 관련 변수
+let diamonds = [];
+let spreadCount = 0; // 제스처 횟수 카운터
+
+// 순차적 삭제를 위한 변수
+let diamondsToShrink = [];
+let shrinkInterval = SEQUENTIAL_DELETION.SHRINK_INTERVAL; // 설정값 사용
+let shrinkCounter = 0;
+
+// 손가락 펼쳐짐 감지를 위한 변수들
+let previousThumbPinkyDistance = 0;
+let isSpreading = false;
+let spreadThreshold = 50; // 엄지와 약지 사이 거리가 이만큼 멀어져야 펼쳐짐으로 인식
+let spreadCooldown = 0; // 펼쳐짐 감지 후 쿨다운
+let spreadCooldownFrames = FINGER_DETECTION.SPREAD_COOLDOWN_FRAMES; // 설정값 사용
+let baselineDistance = 0; // 기준 거리 (손의 크기에 따라 조정)
+let isBaselineSet = false; // 기준 거리 설정 여부
+let consecutiveFrames = 0; // 연속으로 감지된 프레임 수 (사용하지 않음)
+let stabilizationFrames = 0; // 안정화 프레임 수
+let requiredStabilizationFrames = 10; // 안정화에 필요한 프레임 수 (더 빠른 반응)
+let baselineUpdateCounter = 0; // 기준거리 업데이트 카운터
+let baselineUpdateInterval = 20; // 20프레임마다 기준거리 업데이트
+let lastSpreadDistance = 0; // 마지막 손가락 펼쳐짐 시의 거리
+let baselineHistory = []; // 기준거리 히스토리 배열 (사용하지 않음)
+
+// 소리 감지 관련 변수
+let clapThreshold = CLAP_DETECTION.THRESHOLD; // 설정값 사용
+let clapCooldown = 0; // 박수 감지 후 쿨다운
+let clapCooldownFrames = CLAP_DETECTION.COOLDOWN_FRAMES; // 설정값 사용
+let isClapShrinking = false; // 박수로 인한 전체 삭제 진행 중 여부
+let clapShrinkInterval = CLAP_DETECTION.SHRINK_INTERVAL; // 설정값 사용
+let clapShrinkCounter = 0; // 박수 삭제 카운터
+
+// 오디오 관련 변수들
+let audioContext;
+let audioAnalyser;
+let audioDataArray;
+let audioStream;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  
+  // 웹캠 설정
+  video = createCapture(VIDEO, () => {
+    // 웹캠 로딩 후 모델 초기화
+    handpose = ml5.handpose(video, modelReady);
+    handpose.on('predict', results => {
+      predictions = results;
+    });
+  });
+  video.size(640, 480);
+  video.hide();
+  
+  // 마이크 자동 시작
+  startAudioCapture();
+}
+
+function modelReady() {
+  console.log("Handpose 모델 준비 완료! 👋");
+}
+
+// 오디오 캡처 시작
+function startAudioCapture() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(function(stream) {
+      console.log("마이크 준비 완료! 🎤");
+      
+      audioStream = stream;
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      audioAnalyser = audioContext.createAnalyser();
+      
+      source.connect(audioAnalyser);
+      audioAnalyser.fftSize = 256;
+      
+      const bufferLength = audioAnalyser.frequencyBinCount;
+      audioDataArray = new Uint8Array(bufferLength);
+      
+      console.log("오디오 캡처 시작 완료! 🔊");
+    })
+    .catch(function(err) {
+      console.error("마이크 접근 오류:", err);
+    });
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+
+function draw() {
+  background(255);
+
+  // 1. 손가락 펼쳐짐 동작 감지 및 마름모 생성
+  if (predictions.length > 0) {
+    const landmarks = predictions[0].landmarks;
+    let fingersUp = [0, 0, 0, 0, 0];
+
+    // 각 손가락이 펴졌는지 확인
+    if (landmarks[8][1] < landmarks[6][1]) fingersUp[1] = 1; // 검지
+    if (landmarks[12][1] < landmarks[10][1]) fingersUp[2] = 1; // 중지
+    if (landmarks[16][1] < landmarks[14][1]) fingersUp[3] = 1; // 약지
+    if (landmarks[20][1] < landmarks[18][1]) fingersUp[4] = 1; // 새끼
+    if (landmarks[4][0] > landmarks[3][0]) fingersUp[0] = 1; // 엄지
+
+    const totalFingers = fingersUp.reduce((total, finger) => total + finger, 0);
+    
+    // 손가락이 3개 이상 펴진 경우에 펼쳐짐 동작 감지 (더 유연하게)
+    if (totalFingers >= 3) {
+      // 엄지와 약지(새끼손가락) 사이의 거리 계산
+      let thumbPos = [landmarks[4][0], landmarks[4][1]]; // 엄지 끝점
+      let pinkyPos = [landmarks[20][0], landmarks[20][1]]; // 약지 끝점
+      let currentDistance = dist(thumbPos[0], thumbPos[1], pinkyPos[0], pinkyPos[1]);
+      
+      // 간단한 기준거리 로직 (안정 체크 제거)
+      // 기준거리가 설정되지 않았으면 바로 설정
+      if (!isBaselineSet) {
+        baselineDistance = currentDistance;
+        isBaselineSet = true;
+
+      } else {
+        // 기준거리를 점진적으로 업데이트 (노이즈 제거)
+        baselineDistance = baselineDistance * 0.95 + currentDistance * 0.05;
+      }
+      
+
+      baselineUpdateCounter++;
+
+      // 기준 거리가 설정된 후에만 감지 시작
+      if (isBaselineSet) {
+        // 안정화 시간 대기
+        stabilizationFrames++;
+        
+        // 변화율 계산 (안정화 완료 여부와 관계없이)
+        let distanceChange = currentDistance - baselineDistance;
+        let relativeChange = distanceChange / baselineDistance; // 상대적 변화율
+        
+        // 이전 거리와의 변화량도 계산
+        let frameChange = 0;
+        if (previousThumbPinkyDistance > 0) {
+          frameChange = currentDistance - previousThumbPinkyDistance;
+        }
+        
+        // 기준거리에 따른 가변적 변화율 계산
+        let dynamicThreshold = 0;
+        if (baselineDistance <= FINGER_DETECTION.BASELINE_MIN) {
+          dynamicThreshold = FINGER_DETECTION.SPREAD_THRESHOLD_MIN;
+        } else if (baselineDistance >= FINGER_DETECTION.BASELINE_MAX) {
+          dynamicThreshold = FINGER_DETECTION.SPREAD_THRESHOLD_MAX;
+        } else {
+          // 선형 보간
+          let ratio = (baselineDistance - FINGER_DETECTION.BASELINE_MIN) / (FINGER_DETECTION.BASELINE_MAX - FINGER_DETECTION.BASELINE_MIN);
+          dynamicThreshold = FINGER_DETECTION.SPREAD_THRESHOLD_MIN - (ratio * (FINGER_DETECTION.SPREAD_THRESHOLD_MIN - FINGER_DETECTION.SPREAD_THRESHOLD_MAX));
+        }
+        
+        // 안정화 프레임 조건 제거하고 바로 감지 (더 빠른 반응)
+        // 조건: 가변적 변화율 + 방향성 체크 + 최소 거리 임계값 + 최소 변화량
+        let isSpreadingDetected = (relativeChange > dynamicThreshold) && 
+                                 (currentDistance > previousThumbPinkyDistance) && // 방향성 체크: 실제로 늘어나는지
+                                 (currentDistance > FINGER_DETECTION.MIN_DISTANCE) && // 최소 거리 임계값
+                                 (Math.abs(currentDistance - previousThumbPinkyDistance) > FINGER_DETECTION.MIN_CHANGE) && // 최소 변화량
+                                 !isSpreading && spreadCooldown === 0;
+        
+        // 오므라임 감지: 가변적 변화율 + 방향성 체크 (줄어드는 방향) + 최소 변화량
+        let dynamicClosingThreshold = 0;
+        if (baselineDistance <= FINGER_DETECTION.BASELINE_MIN) {
+          dynamicClosingThreshold = FINGER_DETECTION.CLOSE_THRESHOLD_MIN;
+        } else if (baselineDistance >= FINGER_DETECTION.BASELINE_MAX) {
+          dynamicClosingThreshold = FINGER_DETECTION.CLOSE_THRESHOLD_MAX;
+        } else {
+          // 선형 보간
+          let ratio = (baselineDistance - FINGER_DETECTION.BASELINE_MIN) / (FINGER_DETECTION.BASELINE_MAX - FINGER_DETECTION.BASELINE_MIN);
+          dynamicClosingThreshold = FINGER_DETECTION.CLOSE_THRESHOLD_MIN - (ratio * (FINGER_DETECTION.CLOSE_THRESHOLD_MIN - FINGER_DETECTION.CLOSE_THRESHOLD_MAX));
+        }
+        
+        let isClosingDetected = (relativeChange < -dynamicClosingThreshold) && 
+                               (currentDistance < previousThumbPinkyDistance) && // 방향성 체크: 실제로 줄어드는지
+                               (currentDistance > FINGER_DETECTION.MIN_CLOSE_DISTANCE) && // 최소 거리 임계값
+                               (Math.abs(currentDistance - previousThumbPinkyDistance) > FINGER_DETECTION.MIN_CHANGE) && // 최소 변화량
+                               !isSpreading && spreadCooldown === 0;
+        
+
+          
+                                  if (isSpreadingDetected) {
+              // 즉시 펼쳐짐으로 인식 (연속 프레임 조건 제거)
+              isSpreading = true;
+              spreadCount++;
+              lastSpreadDistance = currentDistance; // 손가락 펼쳐짐 시의 거리 저장
+              console.log("손이 펼쳐졌습니다! ✋ (", spreadCount, "번째)");
+              spreadCooldown = spreadCooldownFrames;
+            } else if (isClosingDetected) {
+              // 즉시 오므라임으로 인식 (연속 프레임 조건 제거)
+              console.log("손이 오므라졌습니다! 🤏");
+              
+              // 박수처럼 최근 마름모들 삭제
+              shrinkLatestDiamonds();
+              spreadCooldown = spreadCooldownFrames;
+            }
+      }
+      
+      // 현재 거리를 이전 거리로 저장
+      previousThumbPinkyDistance = currentDistance;
+      
+      // 펼쳐짐이 감지되면 마름모들 생성
+      if (isSpreading) {
+        // 펼쳐졌을 때의 손가락 거리와 기준 거리를 기반으로 마름모 생성
+        generateDiamondGrid(spreadCount, lastSpreadDistance, baselineDistance);
+        isSpreading = false; // 상태 초기화
+        
+
+      }
+    } else {
+      // 손가락이 3개 미만이면 펼쳐짐 상태 초기화
+      isSpreading = false;
+      consecutiveFrames = 0;
+      stabilizationFrames = 0; // 안정화 시간도 리셋
+      // 기준거리 업데이트 카운터는 계속 증가 (손을 잠깐 접었다 펴는 경우 대응)
+      baselineUpdateCounter++;
+    }
+  } else {
+    // 손이 인식되지 않으면 펼쳐짐 상태 초기화
+    isSpreading = false;
+    consecutiveFrames = 0;
+    stabilizationFrames = 0; // 안정화 시간도 리셋
+    // 기준거리 업데이트 카운터는 계속 증가 (손이 잠깐 사라졌다가 다시 나타나는 경우 대응)
+    baselineUpdateCounter++;
+  }
+  
+  // 쿨다운 감소
+  if (spreadCooldown > 0) {
+    spreadCooldown--;
+  }
+
+  // 2. 박수 소리 감지
+  detectClap();
+
+  // 3. 박수로 인한 전체 삭제 처리
+  processClapShrinking();
+
+  // 4. 순차적 삭제 처리
+  processShrinkingQueue();
+
+  // 5. 모든 마름모 업데이트 및 그리기
+  updateAndDrawDiamonds();
+
+  // 6. 손가락 포인터 그리기 (마름모 위에 표시)
+  checkFingers(predictions, video);
+}
+
+function generateDiamondGrid(id, spreadDistance, baseDistance) {
+  // 기준 거리(평소 손 크기)와 펼친 거리를 모두 고려하여 유효 거리 계산
+  const effectiveDistance = baseDistance * DIAMOND_GENERATION.BASELINE_WEIGHT + spreadDistance * DIAMOND_GENERATION.SPREAD_WEIGHT;
+
+  // effectiveDistance 값을 기반으로 마름모 크기 결정
+  const maxDiamondSize = width / DIAMOND_GENERATION.MAX_SIZE_RATIO;
+  const diamondSize = map(effectiveDistance, DIAMOND_GENERATION.MIN_DISTANCE_MAP, DIAMOND_GENERATION.MAX_DISTANCE_MAP, DIAMOND_GENERATION.MIN_SIZE, maxDiamondSize); 
+  const margin = DIAMOND_GENERATION.MARGIN; // 음수 마진으로 화면 밖까지 생성
+  const spacing = diamondSize * DIAMOND_GENERATION.SPACING_MULTIPLIER;
+
+  const cols = floor((width - margin * 2) / spacing);
+  const rows = floor((height - margin * 2) / spacing);
+
+  const gridWidth = (cols - 1) * spacing;
+  const gridHeight = (rows - 1) * spacing;
+  const startX = (width - gridWidth) / 2;
+  const startY = (height - gridHeight) / 2;
+
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const x = startX + i * spacing;
+      const y = startY + j * spacing;
+      const diamond = new Diamond(x, y, diamondSize, id);
+      diamond.startAnimation();
+      diamonds.push(diamond);
+    }
+  }
+}
+
+
+
+/**
+ * @brief 박수 소리를 감지하여 모든 마름모를 순차적으로 삭제합니다.
+ */
+function detectClap() {
+  if (!audioAnalyser || !audioDataArray) {
+    return;
+  }
+  
+  if (clapCooldown > 0) {
+    clapCooldown--;
+    return;
+  }
+  
+  // 소리 레벨 측정
+  audioAnalyser.getByteFrequencyData(audioDataArray);
+  let sum = 0;
+  for (let i = 0; i < audioDataArray.length; i++) {
+    sum += audioDataArray[i];
+  }
+  let level = sum / audioDataArray.length / 255; // 0-1 범위로 정규화
+  
+  // 디버깅: 소리 레벨 출력 (박수 감지 시에만)
+  if (level > clapThreshold * 0.8) {
+    console.log("소리 레벨:", level.toFixed(3));
+  }
+  
+  if (level > clapThreshold && !isClapShrinking) {
+    console.log("박수 감지! 👏 (레벨:", level.toFixed(3), ")");
+    startClapShrinking(); // 박수로 인한 전체 삭제 시작
+    clapCooldown = clapCooldownFrames;
+  }
+}
+
+// 가장 최근에 생성된 마름모 그룹을 삭제 (손 오므리기 제스처용)
+function shrinkLatestDiamonds() {
+  if (diamonds.length === 0) return;
+
+  // 가장 최신 번호 찾기
+  let maxSpreadNumber = -1;
+  for (let diamond of diamonds) {
+    if (diamond.spreadNumber > maxSpreadNumber) {
+      maxSpreadNumber = diamond.spreadNumber;
+    }
+  }
+
+  // 같은 최신 번호의 모든 마름모들 삭제
+  for (let diamond of diamonds) {
+    if (diamond.spreadNumber === maxSpreadNumber && !diamond.isShrinking) {
+      diamond.startShrinking();
+    }
+  }
+}
+
+// 박수로 인한 전체 삭제 시작
+function startClapShrinking() {
+  if (diamonds.length === 0) return;
+  
+  isClapShrinking = true;
+  clapShrinkCounter = 0;
+  console.log("박수 삭제 시작! 모든 다이아몬드 그룹을 순차적으로 삭제합니다.");
+}
+
+// 박수로 인한 전체 삭제 처리
+function processClapShrinking() {
+  if (!isClapShrinking || diamonds.length === 0) return;
+  
+  clapShrinkCounter++;
+  if (clapShrinkCounter >= clapShrinkInterval) {
+    // 아직 삭제되지 않은 다이아몬드 중에서 가장 최신 그룹 번호 찾기
+    let maxSpreadNumber = -1;
+    for (let d of diamonds) {
+      if (!d.isShrinking && !d.shouldDelete) {
+        if (d.spreadNumber > maxSpreadNumber) {
+          maxSpreadNumber = d.spreadNumber;
+        }
+      }
+    }
+    
+    if (maxSpreadNumber === -1) {
+      // 모든 다이아몬드가 삭제되었거나 삭제 중
+      isClapShrinking = false;
+      console.log("박수 삭제 완료! 모든 다이아몬드가 삭제되었습니다.");
+      return;
+    }
+    
+    // 해당 그룹의 모든 다이아몬드 삭제 시작
+    for (let diamond of diamonds) {
+      if (diamond.spreadNumber === maxSpreadNumber && !diamond.isShrinking) {
+        diamond.startShrinking();
+      }
+    }
+    
+    console.log("박수 삭제: 그룹 #", maxSpreadNumber, "삭제 시작");
+    clapShrinkCounter = 0; // 카운터 리셋
+  }
+}
+
+function queueLatestGroupForShrinking() {
+  // 이미 다른 그룹이 삭제 중이면 새로 시작하지 않음
+  if (diamonds.length === 0 || diamondsToShrink.length > 0) return;
+
+  // 아직 삭제되지 않은 다이아몬드 중에서 가장 최신 그룹 번호(spreadNumber) 찾기
+  let maxSpreadNumber = -1;
+  for (let d of diamonds) {
+    if (!d.isShrinking && !d.shouldDelete) {
+      if (d.spreadNumber > maxSpreadNumber) {
+        maxSpreadNumber = d.spreadNumber;
+      }
+    }
+  }
+
+  if (maxSpreadNumber === -1) return; // 삭제할 그룹이 없음
+
+  // 해당 그룹의 모든 다이아몬드를 가져옴
+  let latestGroup = diamonds.filter(d => d.spreadNumber === maxSpreadNumber);
+
+  // y좌표, 그 다음 x좌표 순으로 정렬 (위에서 아래로, 왼쪽에서 오른쪽으로)
+  latestGroup.sort((a, b) => {
+    if (a.centerY !== b.centerY) {
+      return a.centerY - b.centerY;
+    }
+    return a.centerX - b.centerX;
+  });
+
+  diamondsToShrink = latestGroup;
+  shrinkCounter = 0; // 카운터 초기화
+  console.log("박수 감지! 그룹 #", maxSpreadNumber, ": ", diamondsToShrink.length, "개의 마름모를 순차적으로 삭제합니다.");
+}
+
+function processShrinkingQueue() {
+  if (diamondsToShrink.length === 0) return;
+
+  shrinkCounter++;
+  if (shrinkCounter >= shrinkInterval) {
+    const diamond = diamondsToShrink.shift(); // 대기열에서 하나 꺼냄
+    if (diamond) {
+      diamond.startShrinking();
+    }
+    shrinkCounter = 0; // 카운터 리셋
+  }
+}
+
+function updateAndDrawDiamonds() {
+  diamonds = diamonds.filter(diamond => !diamond.shouldDelete);
+
+  for (let diamond of diamonds) {
+    diamond.update();
+    diamond.draw();
+  }
+}
+
+function easeInOutExpo(x) {
+  return x === 0 ? 0 : x === 1 ? 1 : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2 : (2 - Math.pow(2, -20 * x + 10)) / 2;
+}
+
+class Diamond {
+  constructor(centerX, centerY, size, spreadNumber) {
+    this.centerX = centerX;
+    this.centerY = centerY;
+    this.size = size;
+    this.spreadNumber = spreadNumber;
+    this.currentSize = 0;
+    this.targetSize = size;
+    this.animationTime = 0;
+    this.animationDuration = ANIMATION.DURATION;
+    this.isAnimating = false;
+    this.isShrinking = false;
+    this.shouldDelete = false;
+
+  }
+
+  draw() {
+    push();
+    fill(0);
+    noStroke();
+    translate(this.centerX, this.centerY);
+    rotate(PI / 4);
+    rectMode(CENTER);
+    rect(0, 0, this.currentSize * 1.5, this.currentSize * 1.5);
+    pop();
+  }
+
+  startAnimation() {
+    this.isAnimating = true;
+    this.animationTime = 0;
+  }
+
+  startShrinking() {
+    this.isShrinking = true;
+    this.animationTime = 0;
+    this.targetSize = this.currentSize;
+  }
+
+
+
+  update() {
+    if (this.isAnimating) {
+      this.animationTime++;
+      let progress = this.animationTime / this.animationDuration;
+      if (progress >= 1) {
+        progress = 1;
+        this.isAnimating = false;
+      }
+      this.currentSize = lerp(0, this.targetSize, easeInOutExpo(progress));
+    }
+
+    if (this.isShrinking) {
+      this.animationTime++;
+      let progress = this.animationTime / this.animationDuration;
+      if (progress >= 1) {
+        progress = 1;
+        this.isShrinking = false;
+        this.shouldDelete = true;
+      }
+      this.currentSize = lerp(this.targetSize, 0, easeInOutExpo(progress));
+    }
+  }
+}
